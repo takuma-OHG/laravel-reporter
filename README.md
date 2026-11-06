@@ -46,7 +46,7 @@ Hinter einem Proxy (nginx, Docker, Load Balancer) steht in `REMOTE_ADDR` die Pro
 
 Pflicht für jeden vertrauten Proxy: Er hängt die IP seines Gegenübers an `X-Forwarded-For` an (nginx: `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`). Ein Proxy, der den Header vom Client nur durchreicht, macht die IP-Prüfung wertlos.
 
-CDN-Bereiche (Cloudflare, CloudFront usw.) nicht als `TAKUMA_REPORTER_TRUSTED_PROXIES` eintragen. Über diese Adressen kann jeder andere Kunde des CDN Anfragen schicken und dabei `X-Forwarded-For` frei setzen. Läuft die Seite hinter einem CDN, den Endpunkt dort am CDN vorbei erreichbar machen oder per CDN-Regel auf die Manager-IP beschränken.
+CDN-Bereiche (Cloudflare, CloudFront usw.) nicht als `TAKUMA_REPORTER_TRUSTED_PROXIES` eintragen. Über diese Adressen kann jeder andere Kunde des CDN Anfragen schicken und dabei `X-Forwarded-For` frei setzen. Läuft die Seite hinter einem CDN, im takuma manager als Reporter-URL einen Hostnamen eintragen, der direkt auf den Server zeigt (am CDN vorbei). Dann steht die Manager-IP in `REMOTE_ADDR`.
 
 Ohne Token oder ohne erlaubte IPs antwortet der Endpunkt immer 404. Bei gecachter Config danach `php artisan config:cache`.
 
