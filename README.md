@@ -10,7 +10,7 @@ Voraussetzung: PHP 8.1+, Laravel 10 bis 13.
 
 ```json
 "repositories": [
-    { "type": "vcs", "url": "https://github.com/takuma/laravel-reporter" }
+    { "type": "vcs", "url": "https://github.com/takuma-OHG/laravel-reporter" }
 ]
 ```
 
