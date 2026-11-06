@@ -6,23 +6,32 @@ Voraussetzung: PHP 8.1+, Laravel 10 bis 13.
 
 ## Installation
 
-`composer.json` des Projekts:
+Zugriff auf das private Repo läuft pro Server über einen eigenen Deploy-Key (read-only), nicht über ein GitHub-Token. Ein geleakter Key öffnet dann nur dieses eine Repo und lässt sich einzeln widerrufen.
+
+1. Auf dem Server einen Key ohne Passphrase erzeugen: `ssh-keygen -t ed25519 -f ~/.ssh/takuma-reporter -N ""`
+2. Den Public Key in GitHub unter Repo > Settings > Deploy keys eintragen, ohne Schreibrecht. Pro Server ein Key, Titel = Server/Kunde.
+3. Git den Key fest zuweisen. Im Chroot (Shared Hosting) liest ssh das Home aus `/etc/passwd` statt `$HOME` und findet `~/.ssh` sonst nicht:
+
+```bash
+git config --global core.sshCommand "ssh -i $HOME/.ssh/takuma-reporter -o IdentitiesOnly=yes"
+```
+
+4. `composer.json` des Projekts. Ohne Token liefert GitHub kein ZIP. Composer fällt dann nicht von selbst auf Git zurück. Deshalb `preferred-install: source` für das Paket:
 
 ```json
 "repositories": [
-    { "type": "vcs", "url": "https://github.com/takuma-OHG/laravel-reporter" }
-]
-```
-
-`auth.json` (nicht committen) mit einem read-only GitHub-Token:
-
-```json
-{ "github-oauth": { "github.com": "<token>" } }
+    { "type": "vcs", "url": "git@github.com:takuma-OHG/laravel-reporter.git" }
+],
+"config": {
+    "preferred-install": { "takuma/*": "source", "*": "dist" }
+}
 ```
 
 ```bash
-composer require takuma/laravel-reporter
+composer require takuma/laravel-reporter:^1.0
 ```
+
+Immer eine Versions-Einschränkung wie `^1.0` verwenden, nie `dev-main`. Sonst landet jeder Push auf `main` beim nächsten `composer update` auf dem Kundenserver.
 
 ## Konfiguration (.env)
 
@@ -33,7 +42,11 @@ TAKUMA_REPORTER_IPS=203.0.113.10,2001:db8::/32
 TAKUMA_REPORTER_TRUSTED_PROXIES=
 ```
 
-Hinter einem Proxy (nginx, Docker, Cloudflare, Load Balancer) steht in `REMOTE_ADDR` die Proxy-IP. Diese nie in `TAKUMA_REPORTER_IPS` eintragen, sonst besteht jeder Aufrufer die IP-Prüfung. Stattdessen die Proxy-IPs in `TAKUMA_REPORTER_TRUSTED_PROXIES`. Bei mehreren Proxys hintereinander alle eintragen.
+Hinter einem Proxy (nginx, Docker, Load Balancer) steht in `REMOTE_ADDR` die Proxy-IP. Diese nie in `TAKUMA_REPORTER_IPS` eintragen, sonst besteht jeder Aufrufer die IP-Prüfung. Stattdessen die Proxy-IPs in `TAKUMA_REPORTER_TRUSTED_PROXIES`. Bei mehreren Proxys hintereinander alle eintragen.
+
+Pflicht für jeden vertrauten Proxy: Er hängt die IP seines Gegenübers an `X-Forwarded-For` an (nginx: `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`). Ein Proxy, der den Header vom Client nur durchreicht, macht die IP-Prüfung wertlos.
+
+CDN-Bereiche (Cloudflare, CloudFront usw.) nicht als `TAKUMA_REPORTER_TRUSTED_PROXIES` eintragen. Über diese Adressen kann jeder andere Kunde des CDN Anfragen schicken und dabei `X-Forwarded-For` frei setzen. Läuft die Seite hinter einem CDN, den Endpunkt dort am CDN vorbei erreichbar machen oder per CDN-Regel auf die Manager-IP beschränken.
 
 Ohne Token oder ohne erlaubte IPs antwortet der Endpunkt immer 404. Bei gecachter Config danach `php artisan config:cache`.
 
