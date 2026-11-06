@@ -10,11 +10,14 @@ Zugriff auf das private Repo läuft pro Server über einen eigenen Deploy-Key (r
 
 1. Auf dem Server einen Key ohne Passphrase erzeugen: `ssh-keygen -t ed25519 -f ~/.ssh/takuma-reporter -N ""`
 2. Den Public Key in GitHub unter Repo > Settings > Deploy keys eintragen, ohne Schreibrecht. Pro Server ein Key, Titel = Server/Kunde.
-3. Git den Key fest zuweisen. Im Chroot (Shared Hosting) liest ssh das Home aus `/etc/passwd` statt `$HOME` und findet `~/.ssh` sonst nicht:
+3. Git den Key und die Host-Keys von GitHub fest zuweisen. Im Chroot (Shared Hosting) liest ssh das Home aus `/etc/passwd` statt `$HOME` und findet `~/.ssh` sonst nicht, auch nicht `known_hosts`. Composer bricht dann mit "Host key verification failed" ab. Fingerprints nach dem Keyscan mit den [von GitHub veröffentlichten](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints) vergleichen (`ssh-keygen -lf ~/.ssh/known_hosts`):
 
 ```bash
-git config --global core.sshCommand "ssh -i $HOME/.ssh/takuma-reporter -o IdentitiesOnly=yes"
+ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts
+git config --global core.sshCommand "ssh -i $HOME/.ssh/takuma-reporter -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
 ```
+
+`--global` gilt für alle GitHub-Zugriffe dieses Server-Users. Braucht er weitere private Repos, stattdessen `GIT_SSH_COMMAND` nur für den Composer-Lauf setzen.
 
 4. `composer.json` des Projekts. Ohne Token liefert GitHub kein ZIP. Composer fällt dann nicht von selbst auf Git zurück. Deshalb `preferred-install: source` für das Paket:
 
