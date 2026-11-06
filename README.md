@@ -29,11 +29,17 @@ composer require takuma/laravel-reporter
 ```dotenv
 TAKUMA_REPORTER_TOKEN=<64 Zeichen aus dem takuma manager>
 TAKUMA_REPORTER_IPS=203.0.113.10,2001:db8::/32
-# nur hinter Load Balancer/Proxy: dessen IPs, dann zählt der letzte X-Forwarded-For-Eintrag
+# nur hinter Load Balancer/Proxy: dessen IPs, vertraute Hops werden in X-Forwarded-For übersprungen
 TAKUMA_REPORTER_TRUSTED_PROXIES=
 ```
 
+Hinter einem Proxy (nginx, Docker, Cloudflare, Load Balancer) steht in `REMOTE_ADDR` die Proxy-IP. Diese nie in `TAKUMA_REPORTER_IPS` eintragen, sonst besteht jeder Aufrufer die IP-Prüfung. Stattdessen die Proxy-IPs in `TAKUMA_REPORTER_TRUSTED_PROXIES`. Bei mehreren Proxys hintereinander alle eintragen.
+
 Ohne Token oder ohne erlaubte IPs antwortet der Endpunkt immer 404. Bei gecachter Config danach `php artisan config:cache`.
+
+## Bekannte Grenzen
+
+Die abgelehnte Antwort gleicht der Framework-404. Hat die App eine `Route::fallback` oder eine Catch-all-Route (z. B. CMS-Slugs), sieht die 404 des Reporters anders aus als die Seite für unbekannte Pfade. Mit `APP_DEBUG=true` zeigt die Fehlerseite den Controller.
 
 ## Entwicklung
 

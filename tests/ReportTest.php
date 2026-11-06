@@ -40,7 +40,9 @@ final class ReportTest extends TestCase
 
     protected function tearDown(): void
     {
-        @unlink($this->lockPath);
+        if (is_file($this->lockPath)) {
+            unlink($this->lockPath);
+        }
 
         parent::tearDown();
     }
@@ -57,9 +59,12 @@ final class ReportTest extends TestCase
                 'system_version' => $this->app->version(),
                 'php_version' => PHP_VERSION,
                 'environment' => 'testing',
+                'reporter_version' => '1.0.0',
             ])
             ->assertExactJson([...$response->json(), 'packages' => [['name' => 'laravel/framework', 'version' => 'v12.0.0']]]);
 
+        $this->assertSame(['schema_version', 'generated_at', 'reporter_version', 'system', 'system_version', 'php_version', 'environment', 'packages'], array_keys($response->json()));
+        $this->assertNotFalse(\DateTimeImmutable::createFromFormat(DATE_ATOM, $response->json('generated_at')));
         $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
         $this->assertNull($response->headers->get('Set-Cookie'));
     }
@@ -79,6 +84,7 @@ final class ReportTest extends TestCase
             'missing token' => [fn (self $t) => $t->getJson('/takuma-reporter')],
             'wrong ip' => [fn (self $t) => $t->report(ip: '203.0.113.9')],
             'post' => [fn (self $t) => $t->postJson('/takuma-reporter', [], ['Authorization' => 'Bearer '.self::TOKEN])],
+            'post with _method=GET override' => [fn (self $t) => $t->post('/takuma-reporter', ['_method' => 'GET'], ['Authorization' => 'Bearer '.self::TOKEN, 'Accept' => 'application/json'])],
             'empty configured token' => [function (self $t) {
                 config(['takuma-reporter.token' => '']);
 
@@ -127,6 +133,9 @@ final class ReportTest extends TestCase
         $this->report(ip: '10.0.0.1', forwardedFor: '1.2.3.4, 198.51.100.7')->assertOk();
         // Client schreibt die erlaubte IP selbst nach vorn, der Proxy hängt die echte an.
         $this->report(ip: '10.0.0.1', forwardedFor: '198.51.100.7, 1.2.3.4')->assertNotFound();
+        // Zwei vertraute Hops (CDN -> Load Balancer).
+        config(['takuma-reporter.trusted_proxies' => ['10.0.0.1', '192.0.2.0/24']]);
+        $this->report(ip: '10.0.0.1', forwardedFor: '1.2.3.4, 198.51.100.7, 192.0.2.5')->assertOk();
         // Ohne vertrauten Proxy zählt X-Forwarded-For nicht.
         $this->report(ip: '10.0.0.2', forwardedFor: '198.51.100.7')->assertNotFound();
     }

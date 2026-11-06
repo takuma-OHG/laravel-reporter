@@ -20,7 +20,7 @@ final class ReportController
     public function __invoke(Request $request): JsonResponse
     {
         // Jede Ablehnung sieht aus wie eine fehlende Route, damit der Endpunkt nicht auffindbar ist.
-        if (! $request->isMethod('GET') || ! $this->tokenMatches($request) || ! $this->ipAllowed($request)) {
+        if ($request->getRealMethod() !== 'GET' || ! $this->tokenMatches($request) || ! $this->ipAllowed($request)) {
             // Gleiche Meldung wie der Router (AbstractRouteCollection), sonst verrät die JSON-404 den Endpunkt.
             throw new NotFoundHttpException(sprintf('The route %s could not be found.', $request->path()));
         }
@@ -53,23 +53,22 @@ final class ReportController
         return $allowed !== [] && IpUtils::checkIp($this->clientIp($request), $allowed);
     }
 
-    /** Nur der rechteste X-Forwarded-For-Eintrag stammt vom vertrauten Proxy, alles davor kann der Client fälschen. */
+    /** Von rechts lesen und vertraute Proxys überspringen: alles links vom ersten fremden Eintrag kann der Client fälschen. */
     private function clientIp(Request $request): string
     {
         // Bewusst REMOTE_ADDR statt ip(): die TrustProxies-Einstellung der App soll hier nicht greifen.
-        $remote = $request->server->get('REMOTE_ADDR');
-        $remote = is_string($remote) ? $remote : '';
+        $ip = $request->server->get('REMOTE_ADDR');
+        $ip = is_string($ip) ? $ip : '';
         /** @var list<string> $proxies */
         $proxies = (array) $this->config->get('takuma-reporter.trusted_proxies', []);
-        $forwarded = (string) $request->headers->get('X-Forwarded-For', '');
+        // Alle Header-Zeilen, sonst gewinnt bei mehrfach gesendetem Header die Zeile des Clients.
+        $hops = explode(',', implode(',', array_filter($request->headers->all('X-Forwarded-For'), 'is_string')));
 
-        if ($proxies === [] || $forwarded === '' || ! IpUtils::checkIp($remote, $proxies)) {
-            return $remote;
+        while ($proxies !== [] && $ip !== '' && IpUtils::checkIp($ip, $proxies) && $hops !== []) {
+            $ip = trim((string) array_pop($hops));
         }
 
-        $hops = explode(',', $forwarded);
-
-        return trim((string) end($hops));
+        return $ip;
     }
 
     /** @return list<array{name: string, version: string}> */
