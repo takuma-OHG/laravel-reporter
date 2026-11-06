@@ -6,6 +6,38 @@ Voraussetzung: PHP 8.1+, Laravel 10 bis 13.
 
 ## Installation
 
+### Bevorzugt: Path-Paket
+
+Das Paket liegt als Kopie im Projekt. Auf dem Kundenserver braucht es keinen Zugang zu GitHub.
+
+1. Laufzeitdateien nach `packages/laravel-reporter` kopieren (ohne Tests und Build-Dateien):
+
+```bash
+rsync -a --exclude .git --exclude .github --exclude tests --exclude vendor \
+  --exclude composer.lock --exclude 'php*.dist' --exclude .phpunit.result.cache \
+  ~/ARBEIT/PLUGINS/LARAVEL/laravel-reporter/ packages/laravel-reporter/
+```
+
+2. In der `composer.json` des Projekts das Path-Repository eintragen und das Paket installieren:
+
+```json
+"repositories": [
+    { "type": "path", "url": "packages/laravel-reporter" }
+]
+```
+
+```bash
+composer require takuma/laravel-reporter:@dev
+```
+
+3. `packages/laravel-reporter`, `composer.json` und `composer.lock` deployen und auf dem Server `composer install` ausführen.
+
+Updates: Schritt 1 wiederholen, dann `composer update takuma/laravel-reporter`. Welche Version ein Projekt hat, zeigt der takuma manager im Feld `reporter_version`.
+
+### Alternative: Git-Repo per Deploy-Key
+
+Nur nehmen, wenn Updates zentral per `composer update` aus GitHub kommen sollen. ssh sucht den Key im Home des SSH-Users. Jeder SSH-Zugang braucht also einen eigenen Key. Bei vielen Kunden ist das kaum zu pflegen.
+
 Zugriff auf das private Repo läuft pro Server über einen eigenen Deploy-Key (read-only), nicht über ein GitHub-Token. Ein geleakter Key öffnet dann nur dieses eine Repo und lässt sich einzeln widerrufen.
 
 1. Auf dem Server einen Key ohne Passphrase erzeugen: `ssh-keygen -t ed25519 -f ~/.ssh/takuma-reporter -N ""`
