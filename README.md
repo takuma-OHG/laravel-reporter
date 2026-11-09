@@ -6,11 +6,27 @@ Voraussetzung: PHP 8.1+, Laravel 10 bis 13.
 
 ## Installation
 
-### Bevorzugt: Path-Paket
+Das Repo ist öffentlich. Auf dem Server braucht es weder Key noch Token.
 
-Das Paket liegt als Kopie im Projekt. Auf dem Kundenserver braucht es keinen Zugang zu GitHub.
+In der `composer.json` des Projekts:
 
-1. Laufzeitdateien nach `packages/laravel-reporter` kopieren (ohne Tests und Build-Dateien):
+```json
+"repositories": [
+    { "type": "vcs", "url": "https://github.com/takuma-OHG/laravel-reporter.git", "no-api": true }
+]
+```
+
+```bash
+composer require takuma/laravel-reporter:^1.0
+```
+
+`no-api` lädt per `git clone` statt über die GitHub-API. Ohne Token erlaubt GitHub nur 60 API-Abfragen pro Stunde und IP. Auf Shared Hosting teilen sich viele Kunden eine IP. Auf dem Server muss dafür `git` verfügbar sein.
+
+Immer eine Versions-Einschränkung wie `^1.0` verwenden, nie `dev-main`. Sonst landet jeder Push auf `main` beim nächsten `composer update` auf dem Kundenserver. Updates: `composer update takuma/laravel-reporter`, dann deployen. Welche Version ein Projekt hat, zeigt der takuma manager im Feld `reporter_version`.
+
+### Ohne git auf dem Server: Path-Paket
+
+Laufzeitdateien ins Projekt kopieren und als Path-Repository einbinden:
 
 ```bash
 rsync -a --exclude .git --exclude .github --exclude tests --exclude vendor \
@@ -18,55 +34,7 @@ rsync -a --exclude .git --exclude .github --exclude tests --exclude vendor \
   ~/ARBEIT/PLUGINS/LARAVEL/laravel-reporter/ packages/laravel-reporter/
 ```
 
-2. In der `composer.json` des Projekts das Path-Repository eintragen und das Paket installieren:
-
-```json
-"repositories": [
-    { "type": "path", "url": "packages/laravel-reporter" }
-]
-```
-
-```bash
-composer require takuma/laravel-reporter:@dev
-```
-
-3. `packages/laravel-reporter`, `composer.json` und `composer.lock` deployen und auf dem Server `composer install` ausführen.
-
-Updates: Schritt 1 wiederholen, dann `composer update takuma/laravel-reporter`. Welche Version ein Projekt hat, zeigt der takuma manager im Feld `reporter_version`.
-
-### Alternative: Git-Repo per Deploy-Key
-
-Nur nehmen, wenn Updates zentral per `composer update` aus GitHub kommen sollen. ssh sucht den Key im Home des SSH-Users. Jeder SSH-Zugang braucht also einen eigenen Key. Bei vielen Kunden ist das kaum zu pflegen.
-
-Zugriff auf das private Repo läuft pro Server über einen eigenen Deploy-Key (read-only), nicht über ein GitHub-Token. Ein geleakter Key öffnet dann nur dieses eine Repo und lässt sich einzeln widerrufen.
-
-1. Auf dem Server einen Key ohne Passphrase erzeugen: `ssh-keygen -t ed25519 -f ~/.ssh/takuma-reporter -N ""`
-2. Den Public Key in GitHub unter Repo > Settings > Deploy keys eintragen, ohne Schreibrecht. Pro Server ein Key, Titel = Server/Kunde.
-3. Git den Key und die Host-Keys von GitHub fest zuweisen. Im Chroot (Shared Hosting) liest ssh das Home aus `/etc/passwd` statt `$HOME` und findet `~/.ssh` sonst nicht, auch nicht `known_hosts`. Composer bricht dann mit "Host key verification failed" ab. Fingerprints nach dem Keyscan mit den [von GitHub veröffentlichten](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints) vergleichen (`ssh-keygen -lf ~/.ssh/known_hosts`):
-
-```bash
-ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts
-git config --global core.sshCommand "ssh -i $HOME/.ssh/takuma-reporter -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
-```
-
-`--global` gilt für alle GitHub-Zugriffe dieses Server-Users. Braucht er weitere private Repos, stattdessen `GIT_SSH_COMMAND` nur für den Composer-Lauf setzen.
-
-4. `composer.json` des Projekts. Ohne Token liefert GitHub kein ZIP. Composer fällt dann nicht von selbst auf Git zurück. Deshalb `preferred-install: source` für das Paket:
-
-```json
-"repositories": [
-    { "type": "vcs", "url": "git@github.com:takuma-OHG/laravel-reporter.git" }
-],
-"config": {
-    "preferred-install": { "takuma/*": "source", "*": "dist" }
-}
-```
-
-```bash
-composer require takuma/laravel-reporter:^1.0
-```
-
-Immer eine Versions-Einschränkung wie `^1.0` verwenden, nie `dev-main`. Sonst landet jeder Push auf `main` beim nächsten `composer update` auf dem Kundenserver.
+Dann `{ "type": "path", "url": "packages/*" }` als Repository eintragen und `composer require takuma/laravel-reporter:@dev`. Updates heißen hier: Kopie erneuern, dann `composer update takuma/laravel-reporter`.
 
 ## Konfiguration (.env)
 
